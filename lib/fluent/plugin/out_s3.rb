@@ -3,8 +3,8 @@ module Fluent
 require 'fluent/mixin/config_placeholders'
 require 'uuidtools'
 
-class S3Output < Fluent::TimeSlicedOutput
-  Fluent::Plugin.register_output('s3', self)
+class S3PPCOutput < Fluent::TimeSlicedOutput
+  Fluent::Plugin.register_output('s3ppc', self)
 
   def initialize
     super

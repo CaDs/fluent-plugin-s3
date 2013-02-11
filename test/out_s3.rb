@@ -4,7 +4,7 @@ require 'fluent/plugin/out_s3'
 require 'flexmock/test_unit'
 require 'zlib'
 
-class S3OutputTest < Test::Unit::TestCase
+class S3PPCOutputTest < Test::Unit::TestCase
   def setup
     Fluent::Test.setup
   end
@@ -19,7 +19,7 @@ class S3OutputTest < Test::Unit::TestCase
   ]
 
   def create_driver(conf = CONFIG)
-    Fluent::Test::BufferedOutputTestDriver.new(Fluent::S3Output) do
+    Fluent::Test::BufferedOutputTestDriver.new(Fluent::S3PPCOutput) do
       def write(chunk)
         chunk.read
       end
@@ -175,7 +175,7 @@ class S3OutputTest < Test::Unit::TestCase
 
     # We must use TimeSlicedOutputTestDriver instead of BufferedOutputTestDriver,
     # to make assertions on chunks' keys
-    d = Fluent::Test::TimeSlicedOutputTestDriver.new(Fluent::S3Output).configure(%[
+    d = Fluent::Test::TimeSlicedOutputTestDriver.new(Fluent::S3PPCOutput).configure(%[
       hostname testing.node.local
       aws_key_id test_key_id
       aws_sec_key test_sec_key
@@ -232,7 +232,7 @@ class S3OutputTest < Test::Unit::TestCase
         }
     end
     
-    d2 = Fluent::Test::TimeSlicedOutputTestDriver.new(Fluent::S3Output).configure(%[
+    d2 = Fluent::Test::TimeSlicedOutputTestDriver.new(Fluent::S3PPCOutput).configure(%[
       hostname testing.node.local
       uniq true
       aws_key_id test_key_id
