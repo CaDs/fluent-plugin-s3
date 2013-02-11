@@ -48,6 +48,11 @@ Simply use RubyGems:
 
 to decide keys dynamically.
 
+Use the following syntax for uniq filenames instead of indices:
+
+      s3_object_key_format %{path}%{time_slice}_${hostname}_%{uniq}.{file_extension}
+      uuiq true
+
 %{path} is exactly the value of *path* configured in the configuration file. E.g., "logs/" in the example configuration above.
 %{time_slice} is the time-slice in text that are formatted with *time_slice_format*.
 %{index} is the sequential number starts from 0, increments when multiple files are uploaded to S3 in the same time slice.

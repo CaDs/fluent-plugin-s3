@@ -195,5 +195,60 @@ class S3OutputTest < Test::Unit::TestCase
     d.run
   end
 
+  def test_write_with_custom_s3_object_key_format_uniq
+    s3obj = flexmock(AWS::S3::S3Object)
+    s3obj.should_receive(:exists?).with_any_args.
+      and_return { false }
+    s3obj.should_receive(:write).with(
+      on { |pathname|
+        data = nil
+        # Event logs are compressed in GZip
+        pathname.open { |f|
+          gz = Zlib::GzipReader.new(f)
+          data = gz.read
+          gz.close
+        }
+        assert_equal %[2011-01-02T13:14:15Z\ttest\t{"a":1}\n] +
+                         %[2011-01-02T13:14:15Z\ttest\t{"a":2}\n],
+                     data
+
+        pathname.to_s.match(%r|s3-|)
+      },
+      {:content_type=>"application/x-gzip"})
+
+    s3obj_col = flexmock(AWS::S3::ObjectCollection)
+    s3obj_col.should_receive(:[]).with(
+      on { |key|
+        key.match /log\/events\/ts=20110102-13\/events_testing.node.local_[0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12}.gz/
+      }).
+      and_return {
+        s3obj
+      }
+
+    flexmock(AWS::S3::Bucket).new_instances do |bucket|
+      bucket.should_receive(:objects).with_any_args.
+        and_return {
+          s3obj_col
+        }
+    end
+    
+    d2 = Fluent::Test::TimeSlicedOutputTestDriver.new(Fluent::S3Output).configure(%[
+      hostname testing.node.local
+      uniq true
+      aws_key_id test_key_id
+      aws_sec_key test_sec_key
+      s3_bucket test_bucket
+      s3_object_key_format %{path}/events/ts=%{time_slice}/events_${hostname}_%{uniq}.%{file_extension}
+      time_slice_format %Y%m%d-%H
+      path log
+      utc
+      buffer_type memory
+    ])
+    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+    d2.emit({"a"=>1}, time)
+    d2.emit({"a"=>2}, time)
+    d2.run
+  end
+
 end
 

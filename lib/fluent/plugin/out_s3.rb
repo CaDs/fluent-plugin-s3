@@ -1,6 +1,7 @@
 module Fluent
 
 require 'fluent/mixin/config_placeholders'
+require 'uuidtools'
 
 class S3Output < Fluent::TimeSlicedOutput
   Fluent::Plugin.register_output('s3', self)
@@ -29,6 +30,7 @@ class S3Output < Fluent::TimeSlicedOutput
   config_param :s3_bucket, :string
   config_param :s3_endpoint, :string, :default => nil
   config_param :s3_object_key_format, :string, :default => "%{path}%{time_slice}_%{index}.%{file_extension}"
+  config_param :uniq, :string, :default => false
 
   include Fluent::Mixin::ConfigPlaceholders
 
@@ -52,6 +54,14 @@ class S3Output < Fluent::TimeSlicedOutput
           raise ConfigError, "'true' or 'false' is required for use_ssl option on s3 output"
         end
       end
+    end
+
+    if uniq = conf['uniq']
+      @uniq = Config.bool_value(uniq)
+      if @uniq == true
+        raise ConfigError, "%{uniq} placeholder is required when uniq is true" unless conf['s3_object_key_format'].match(/%\{uniq\}/)
+      end
+      raise ConfigError, "'true' or 'false' is required for uniq option on s3 output'" if @uniq.nil?
     end
 
     @timef = TimeFormatter.new(@time_format, @localtime)
@@ -92,19 +102,32 @@ class S3Output < Fluent::TimeSlicedOutput
   end
 
   def write(chunk)
-    i = 0
-    begin
+
+    if @uniq
       values_for_s3_object_key = {
         "path" => @path,
         "time_slice" => chunk.key,
         "file_extension" => "gz",
-        "index" => i
+        "uniq" =>  UUIDTools::UUID.timestamp_create
       }
       s3path = @s3_object_key_format.gsub(%r(%{[^}]+})) { |expr|
         values_for_s3_object_key[expr[2...expr.size-1]]
       }
-      i += 1
-    end while @bucket.objects[s3path].exists?
+    else
+      i = 0
+      begin
+        values_for_s3_object_key = {
+          "path" => @path,
+          "time_slice" => chunk.key,
+          "file_extension" => "gz",
+          "index" => i
+        }
+        s3path = @s3_object_key_format.gsub(%r(%{[^}]+})) { |expr|
+          values_for_s3_object_key[expr[2...expr.size-1]]
+        }
+        i += 1
+      end while @bucket.objects[s3path].exists?
+    end
 
     tmp = Tempfile.new("s3-")
     w = Zlib::GzipWriter.new(tmp)
